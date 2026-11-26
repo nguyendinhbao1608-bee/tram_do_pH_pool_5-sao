@@ -1,0 +1,919 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trạm Giám Sát pH Hồ Bơi 5 Sao</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Firebase SDK (v9 Compat) -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-database-compat.js"></script>
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Plus Jakarta Sans', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                    },
+                    colors: {
+                        cyber: {
+                            bg: '#052019',
+                            card: 'rgba(6, 36, 29, 0.75)',
+                            border: 'rgba(45, 212, 191, 0.15)',
+                            hover: 'rgba(30, 41, 59, 0.8)',
+                            teal: '#2dd4bf',
+                            emerald: '#10b981',
+                            orange: '#f59e0b',
+                            rose: '#f43f5e',
+                            purple: '#818cf8',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        body {
+            background-color: #052019;
+            background-image: 
+                radial-gradient(at 0% 0%, rgba(45, 212, 191, 0.08) 0px, transparent 50%),
+                radial-gradient(at 100% 100%, rgba(52, 211, 153, 0.10) 0px, transparent 50%),
+                radial-gradient(at 50% 50%, rgba(6, 36, 29, 0.5) 0px, transparent 100%);
+            background-attachment: fixed;
+            color: #f8fafc;
+        }
+
+        .glass-panel {
+            background: rgba(6, 36, 29, 0.75);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(45, 212, 191, 0.15);
+            box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.5);
+        }
+
+        .glass-panel:hover {
+            border-color: rgba(45, 212, 191, 0.3);
+        }
+
+        .glow-teal {
+            box-shadow: 0 0 20px rgba(45, 212, 191, 0.25);
+        }
+
+        .glow-emerald {
+            box-shadow: 0 0 20px rgba(16, 185, 129, 0.3);
+        }
+
+        .glow-rose {
+            box-shadow: 0 0 20px rgba(244, 63, 94, 0.3);
+        }
+
+        @keyframes pulse-slow {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.6; transform: scale(0.96); }
+        }
+
+        .animate-pulse-slow {
+            animation: pulse-slow 2.5s infinite ease-in-out;
+        }
+
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #052019;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #134e4a;
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #2dd4bf;
+        }
+    </style>
+</head>
+<body class="min-h-screen p-3 md:p-6 text-zinc-100 flex justify-center items-start">
+
+    <!-- MAIN CONTAINER -->
+    <div class="max-w-6xl w-full flex flex-col gap-5">
+
+        <!-- 1. HEADER BAR -->
+        <header class="glass-panel rounded-2xl p-4 md:px-6 md:py-4 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 relative overflow-hidden">
+            <div class="absolute -right-10 -top-10 w-40 h-40 bg-teal-500/10 rounded-full blur-3xl pointer-events-none"></div>
+
+            <div class="flex items-center gap-4">
+                <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-teal-500 to-emerald-600 flex items-center justify-center text-white shadow-lg glow-teal">
+                    <i class="fa-solid fa-droplet text-2xl"></i>
+                </div>
+                <div>
+                    <div class="flex items-center gap-2">
+                        <h1 class="text-xl md:text-2xl font-extrabold tracking-wide text-white uppercase">TRẠM GIÁM SÁT pH HỒ BƠI 5 SAO</h1>
+                    </div>
+                    <p class="text-lg text-yellow-300 tracking-[0.35em] mt-0.5" aria-label="5 sao">★★★★★</p>
+                </div>
+            </div>
+
+            <!-- Header Badges & Actions -->
+            <div class="flex flex-wrap items-center gap-3 w-full md:w-auto justify-between md:justify-end border-t md:border-t-0 pt-3 md:pt-0 border-zinc-700/50">
+                <!-- Status Indicator -->
+                <div id="firebase-status" class="px-3 py-1.5 rounded-full text-xs font-semibold flex items-center gap-2 bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 transition-all cursor-pointer" onclick="openFirebaseModal()">
+                    <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+                    <i class="fa-solid fa-bolt"></i>
+                    <span id="firebase-status-text">Đang chạy giả lập</span>
+                </div>
+
+                <!-- Mode Indicator -->
+                <div class="px-3 py-1.5 rounded-full text-xs font-semibold flex items-center gap-2 bg-teal-500/15 text-teal-400 border border-teal-500/30">
+                    <i class="fa-solid fa-microchip"></i>
+                    <span>Chế Độ Ghi Lập: <strong id="mode-text">BẬT</strong></span>
+                </div>
+
+                <!-- Settings Gear -->
+                <button onclick="openFirebaseModal()" class="w-9 h-9 rounded-xl bg-zinc-800/80 hover:bg-zinc-700 border border-zinc-700 flex items-center justify-center text-zinc-300 hover:text-white transition">
+                    <i class="fa-solid fa-gear"></i>
+                </button>
+            </div>
+        </header>
+
+        <!-- QUICK SIMULATION ACTION BAR -->
+        <div class="glass-panel rounded-xl p-3 flex flex-wrap items-center justify-between gap-3 text-xs">
+            <div class="flex items-center gap-2 text-zinc-400">
+                <i class="fa-solid fa-flask-vial text-teal-400"></i>
+                <span>Thanh Điều Khiển Thử Nghiệm Nhanh (Test Nhanh / Simulation):</span>
+            </div>
+            <div class="flex flex-wrap items-center gap-2">
+                <button onclick="simulatePH(4.01)" class="px-3 py-1.5 rounded-lg bg-orange-500/20 hover:bg-orange-500/30 text-orange-300 border border-orange-500/30 transition flex items-center gap-1.5">
+                    <i class="fa-solid fa-vial"></i> Test pH Axít (4.01)
+                </button>
+                <button onclick="simulatePH(6.86)" class="px-3 py-1.5 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/30 transition flex items-center gap-1.5">
+                    <i class="fa-solid fa-check-double"></i> Test pH Chuẩn (6.86)
+                </button>
+                <button onclick="simulatePH(9.18)" class="px-3 py-1.5 rounded-lg bg-purple-500/20 hover:bg-purple-500/30 text-purple-300 border border-purple-500/30 transition flex items-center gap-1.5">
+                    <i class="fa-solid fa-vial-circle-check"></i> Test pH Kiềm (9.18)
+                </button>
+                <button onclick="toggleDataStream()" id="stream-toggle-btn" class="px-3 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-zinc-600 transition flex items-center gap-1.5">
+                    <i class="fa-solid fa-pause"></i> Tạm Dừng Sim
+                </button>
+            </div>
+        </div>
+
+        <!-- 2. PRIMARY KPI CARDS GRID -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
+
+            <!-- CARD A: TRẠNG THÁI pH -->
+            <div class="glass-panel rounded-2xl p-5 flex flex-col justify-between relative overflow-hidden group">
+                <div class="flex justify-between items-start">
+                    <div>
+                        <span class="text-xs font-semibold text-zinc-400 uppercase tracking-wider">ĐỘ pH HIỆN TẠI</span>
+                        <h3 class="text-lg font-bold text-white mt-0.5">Trạng Thái Hồ Bơi</h3>
+                    </div>
+                    <span id="ph-status-badge" class="px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                        TỐI ƯU (CHUẨN HỒ BƠI)
+                    </span>
+                </div>
+
+                <div class="my-4 flex items-baseline gap-3">
+                    <div id="kpi-ph-value" class="text-5xl font-black font-mono tracking-tight text-emerald-400">7.16</div>
+                    <span class="text-lg font-bold text-zinc-400 font-mono">pH</span>
+                </div>
+
+                <!-- Custom Range Scale Progress Bar -->
+                <div class="space-y-1.5">
+                    <div class="flex justify-between text-xs font-mono text-zinc-400">
+                        <span>Axit (0)</span>
+                        <span class="text-emerald-400 font-bold">Mục tiêu: 7.20 - 7.60</span>
+                        <span>Kiềm (14)</span>
+                    </div>
+                    <div class="w-full h-2.5 bg-zinc-800 rounded-full overflow-hidden p-0.5 relative border border-zinc-700">
+                        <div class="absolute left-[51%] w-[6%] h-full bg-emerald-500/30 border-x border-emerald-400"></div>
+                        <div id="ph-progress-bar" class="h-full bg-gradient-to-r from-orange-500 via-emerald-400 to-teal-400 rounded-full transition-all duration-500" style="width: 51.1%;"></div>
+                    </div>
+                </div>
+
+                <div class="mt-4 pt-3 border-t border-zinc-800 flex justify-between items-center text-xs text-zinc-400">
+                    <span>Ngưỡng chuẩn: <strong class="text-zinc-200">7.200 - 7.600</strong></span>
+                    <span class="flex items-center gap-1"><i class="fa-solid fa-chart-line text-emerald-400"></i> Ổn định: <strong id="kpi-drift-text" class="text-emerald-400 font-mono">~0.1 mV / 60s</strong></span>
+                </div>
+            </div>
+
+            <!-- CARD B: CẢM BIẾN & KHUẾCH ĐẠI -->
+            <div class="glass-panel rounded-2xl p-5 flex flex-col justify-between relative overflow-hidden">
+                <div class="flex justify-between items-start">
+                    <div>
+                        <span class="text-xs font-semibold text-zinc-400 uppercase tracking-wider">ĐIỆN ÁP ANALOG</span>
+                        <h3 class="text-lg font-bold text-white mt-0.5">Cảm Biến & Khuếch Đại</h3>
+                    </div>
+                    <span class="w-7 h-7 rounded-lg bg-orange-500/20 text-orange-400 border border-orange-500/30 flex items-center justify-center font-mono font-bold text-xs">
+                        IC
+                    </span>
+                </div>
+
+                <div class="my-4 flex items-baseline gap-2">
+                    <div id="kpi-voltage" class="text-4xl font-extrabold font-mono text-teal-400">1.203</div>
+                    <span class="text-xl font-bold text-zinc-400 font-mono">V</span>
+                </div>
+
+                <div class="space-y-2 text-xs">
+                    <div class="flex justify-between items-center bg-zinc-900/60 p-2 rounded-lg border border-zinc-800">
+                        <span class="text-zinc-400">Mạch đệm MCP6N11:</span>
+                        <span class="text-emerald-400 font-semibold flex items-center gap-1">
+                            <i class="fa-solid fa-circle-check text-[10px]"></i> Hoạt động tốt
+                        </span>
+                    </div>
+
+                    <div class="flex justify-between items-center bg-zinc-900/60 p-2 rounded-lg border border-zinc-800 font-mono">
+                        <span class="text-zinc-400">ADC 12-bit Raw:</span>
+                        <span id="kpi-adc-raw" class="text-teal-300 font-bold">1500 / 4095</span>
+                    </div>
+                </div>
+
+                <div class="mt-4 pt-3 border-t border-zinc-800 flex justify-between items-center text-xs text-zinc-400">
+                    <span>Lọc nhiễu EMA: <strong class="text-teal-400 font-mono">α = 0.20</strong></span>
+                    <span class="text-emerald-400 font-semibold"><i class="fa-solid fa-shield-halved"></i> Tín hiệu sạch</span>
+                </div>
+            </div>
+
+            <!-- CARD C: THIẾT BỊ BƠM ĐỊNH LƯỢNG -->
+            <div class="glass-panel rounded-2xl p-5 flex flex-col justify-between relative overflow-hidden">
+                <div class="flex justify-between items-start">
+                    <div>
+                        <span class="text-xs font-semibold text-zinc-400 uppercase tracking-wider">THIẾT BỊ CHẤP HÀNH</span>
+                        <h3 class="text-lg font-bold text-white mt-0.5">Bơm Định Lượng</h3>
+                    </div>
+                    <span id="pump-mode-badge" class="px-2.5 py-1 rounded-full text-xs font-bold bg-orange-500/20 text-orange-300 border border-orange-500/30">
+                        TỰ ĐỘNG
+                    </span>
+                </div>
+
+                <div class="my-4 flex items-center gap-3">
+                    <div id="pump-status-icon" class="w-12 h-12 rounded-xl bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 flex items-center justify-center text-2xl animate-pulse-slow">
+                        <i class="fa-solid fa-gears"></i>
+                    </div>
+                    <div>
+                        <div id="pump-status-text" class="text-2xl font-black text-emerald-400 tracking-wide uppercase">ĐANG BẬT</div>
+                        <span class="text-xs text-zinc-400 font-mono">Rơ-le Chân D3 (GPIO21)</span>
+                    </div>
+                </div>
+
+                <div class="bg-zinc-900/70 rounded-xl p-3 border border-zinc-800 flex justify-between items-center text-xs font-mono">
+                    <span class="text-zinc-400">Thời gian chạy hiện tại:</span>
+                    <span id="pump-runtime" class="text-emerald-400 font-bold text-sm">14 phút 22 giây</span>
+                </div>
+
+                <div class="mt-4 pt-3 border-t border-zinc-800 flex justify-between items-center text-xs text-zinc-400">
+                    <span>Khóa an toàn 5s: <strong class="text-emerald-400">KÍCH HOẠT</strong></span>
+                    <button onclick="togglePumpManual()" id="btn-quick-pump" class="text-teal-400 hover:text-teal-300 font-semibold underline underline-offset-2">
+                        Đổi trạng thái
+                    </button>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- 3. REAL-TIME TELEMETRY GRAPH SECTION -->
+        <div class="glass-panel rounded-2xl p-5 flex flex-col gap-4">
+            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+                <div>
+                    <div class="flex items-center gap-2">
+                        <i class="fa-solid fa-chart-line text-teal-400 text-lg"></i>
+                        <h2 class="text-lg font-bold text-white uppercase tracking-wide">ĐỒ THỊ pH THỜI GIAN THỰC (TELEMETRY)</h2>
+                    </div>
+                    <p class="text-xs text-zinc-400 mt-0.5">Dữ liệu được cập nhật liên tục từ cảm biến qua vi điều khiển ESP32-C6</p>
+                </div>
+
+                <!-- Timeframe Filters & Actions -->
+                <div class="flex items-center gap-2">
+                    <div class="bg-zinc-900/90 p-1 rounded-xl border border-zinc-800 flex items-center text-xs font-semibold">
+                        <button onclick="setGraphFilter('live')" id="btn-filter-live" class="px-3 py-1.5 rounded-lg bg-teal-500 text-zinc-950 font-bold transition">Trực Tiếp</button>
+                        <button onclick="setGraphFilter('1h')" id="btn-filter-1h" class="px-3 py-1.5 rounded-lg text-zinc-400 hover:text-white transition">1 Giờ</button>
+                        <button onclick="setGraphFilter('24h')" id="btn-filter-24h" class="px-3 py-1.5 rounded-lg text-zinc-400 hover:text-white transition">24 Giờ</button>
+                    </div>
+
+                    <button onclick="exportCSV()" class="px-3 py-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-xs font-semibold text-zinc-200 border border-zinc-700 transition flex items-center gap-1.5">
+                        <i class="fa-solid fa-file-csv text-emerald-400"></i> Xuất CSV
+                    </button>
+                </div>
+            </div>
+
+            <!-- Canvas Graph Container -->
+            <div class="w-full h-72 md:h-80 relative bg-zinc-950/40 rounded-xl p-3 border border-zinc-800/80">
+                <canvas id="telemetryChart"></canvas>
+            </div>
+        </div>
+
+        <!-- 4. BOTTOM GRID: CONTROLS & CALIBRATION -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+
+            <!-- CONTROL PANEL: THIẾT LẬP NGƯỠNG TỰ ĐỘNG -->
+            <div class="glass-panel rounded-2xl p-5 flex flex-col justify-between gap-4">
+                <div class="flex items-center gap-2 border-b border-zinc-800 pb-3">
+                    <div class="w-8 h-8 rounded-lg bg-teal-500/20 text-teal-400 border border-teal-500/30 flex items-center justify-center text-sm">
+                        <i class="fa-solid fa-sliders"></i>
+                    </div>
+                    <div>
+                        <h3 class="text-base font-bold text-white">THIẾT LẬP NGƯỠNG TỰ ĐỘNG</h3>
+                        <p class="text-xs text-zinc-400">Cấu hình tham số kích hoạt bơm tự động dựa trên độ pH đo được</p>
+                    </div>
+                </div>
+
+                <div class="space-y-4 my-1">
+                    <div class="flex items-center justify-between bg-zinc-900/60 p-3 rounded-xl border border-zinc-800">
+                        <div class="flex items-center gap-2.5">
+                            <span class="w-3 h-3 rounded-full bg-orange-400"></span>
+                            <span class="text-xs font-semibold text-zinc-300">Bật bơm khi pH &lt;</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <input type="number" id="input-ph-min" step="0.1" min="0" max="14" value="7.2" class="w-20 bg-zinc-950 border border-zinc-700 text-center font-mono font-bold text-sm text-teal-400 py-1.5 rounded-lg focus:outline-none focus:border-teal-400">
+                            <span class="text-xs text-zinc-400 font-mono">pH</span>
+                        </div>
+                    </div>
+
+                    <div class="flex items-center justify-between bg-zinc-900/60 p-3 rounded-xl border border-zinc-800">
+                        <div class="flex items-center gap-2.5">
+                            <span class="w-3 h-3 rounded-full bg-teal-400"></span>
+                            <span class="text-xs font-semibold text-zinc-300">Tắt bơm khi pH &gt;</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <input type="number" id="input-ph-max" step="0.1" min="0" max="14" value="7.6" class="w-20 bg-zinc-950 border border-zinc-700 text-center font-mono font-bold text-sm text-teal-400 py-1.5 rounded-lg focus:outline-none focus:border-teal-400">
+                            <span class="text-xs text-zinc-400 font-mono">pH</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-3 gap-2.5 pt-2">
+                    <button onclick="saveThresholdSettings()" class="py-2.5 px-3 rounded-xl bg-teal-500 hover:bg-teal-400 text-zinc-950 font-bold text-xs transition flex items-center justify-center gap-1.5 shadow-md shadow-teal-500/20">
+                        <i class="fa-solid fa-floppy-disk"></i> LƯU THIẾT LẬP
+                    </button>
+                    <button onclick="togglePumpMode()" class="py-2.5 px-3 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-200 font-semibold text-xs border border-zinc-700 transition flex items-center justify-center gap-1.5">
+                        <i class="fa-solid fa-rotate"></i> ĐỔI CHẾ ĐỘ
+                    </button>
+                    <button onclick="forcePumpToggle()" class="py-2.5 px-3 rounded-xl bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 font-bold text-xs border border-rose-500/40 transition flex items-center justify-center gap-1.5">
+                        <i class="fa-solid fa-bolt"></i> FORCE PUMP
+                    </button>
+                </div>
+            </div>
+
+            <!-- CALIBRATION PANEL: CHẾ ĐỘ HIỆU CHUẨN -->
+            <div class="glass-panel rounded-2xl p-5 flex flex-col justify-between gap-4">
+                <div class="flex justify-between items-center border-b border-zinc-800 pb-3">
+                    <div class="flex items-center gap-2">
+                        <div class="w-8 h-8 rounded-lg bg-purple-500/20 text-purple-400 border border-purple-500/30 flex items-center justify-center text-sm">
+                            <i class="fa-solid fa-key"></i>
+                        </div>
+                        <div>
+                            <h3 class="text-base font-bold text-white">CHẾ ĐỘ HIỆU CHUẨN (CALIBRATION)</h3>
+                            <p class="text-xs text-zinc-400">Nhúng đầu đo cảm biến vào dung dịch chuẩn tương ứng trước khi ấn</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flex justify-between items-center bg-zinc-900/60 p-3 rounded-xl border border-zinc-800">
+                    <div class="flex items-center gap-2">
+                        <i class="fa-solid fa-lock text-purple-400 text-sm" id="lock-icon"></i>
+                        <span class="text-xs font-semibold text-zinc-300">Mở khóa để thực hiện hiệu chuẩn</span>
+                    </div>
+                    <label class="relative inline-flex items-center cursor-pointer">
+                        <input type="checkbox" id="cal-unlock-switch" onchange="toggleCalLock(this.checked)" class="sr-only peer">
+                        <div class="w-11 h-6 bg-zinc-800 peer-focus:outline-none rounded-full peer peer-checked:after:tranzinc-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-zinc-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
+                    </label>
+                </div>
+
+                <div class="grid grid-cols-3 gap-2.5">
+                    <button onclick="calibratePoint(4.01)" id="btn-cal-4" disabled class="p-3 rounded-xl bg-zinc-900 border border-zinc-800 text-zinc-500 font-semibold text-xs flex flex-col items-center gap-1 transition opacity-50 cursor-not-allowed">
+                        <span class="text-zinc-400 font-mono text-[10px]">Dung Dịch</span>
+                        <span class="text-orange-400 font-bold text-sm">pH 4.01</span>
+                        <span class="text-[10px] font-mono text-zinc-500" id="cal-v4-val">(1.017 V)</span>
+                    </button>
+
+                    <button onclick="calibratePoint(6.86)" id="btn-cal-7" disabled class="p-3 rounded-xl bg-zinc-900 border border-zinc-800 text-zinc-500 font-semibold text-xs flex flex-col items-center gap-1 transition opacity-50 cursor-not-allowed">
+                        <span class="text-zinc-400 font-mono text-[10px]">Dung Dịch</span>
+                        <span class="text-emerald-400 font-bold text-sm">pH 6.86</span>
+                        <span class="text-[10px] font-mono text-zinc-500" id="cal-v7-val">(1.185 V)</span>
+                    </button>
+
+                    <button onclick="calibratePoint(9.18)" id="btn-cal-10" disabled class="p-3 rounded-xl bg-zinc-900 border border-zinc-800 text-zinc-500 font-semibold text-xs flex flex-col items-center gap-1 transition opacity-50 cursor-not-allowed">
+                        <span class="text-zinc-400 font-mono text-[10px]">Dung Dịch</span>
+                        <span class="text-purple-400 font-bold text-sm">pH 9.18</span>
+                        <span class="text-[10px] font-mono text-zinc-500" id="cal-v10-val">(1.316 V)</span>
+                    </button>
+                </div>
+
+                <div class="pt-2 border-t border-zinc-800/80 flex justify-between items-center text-xs text-zinc-400 font-mono">
+                    <span>Độ dốc (Slope): <strong id="cal-slope" class="text-teal-400">-59.16 mV/pH</strong></span>
+                    <span>Offset: <strong id="cal-offset" class="text-teal-400">+0.022 V</strong></span>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- FOOTER -->
+        <footer class="glass-panel rounded-2xl p-4 flex flex-col sm:flex-row justify-between items-center text-xs text-zinc-400 gap-2">
+            <div class="flex items-center gap-2">
+                <i class="fa-solid fa-water text-teal-400"></i>
+                <span class="font-bold text-zinc-200">TRẠM GIÁM SÁT pH HỒ BƠI</span>
+                <span>• Aquasense Platform</span>
+            </div>
+            <div class="font-mono text-[11px] text-zinc-500">
+                ESP32-C6 Dual-Core RISC-V @ 160MHz | Web Server & Realtime Telemetry
+            </div>
+        </footer>
+
+    </div>
+
+    <!-- MODAL: FIREBASE CONFIGURATION & SYSTEM LOG -->
+    <div id="firebase-modal" class="fixed inset-0 bg-zinc-950/80 backdrop-blur-md flex items-center justify-center p-4 z-50 hidden">
+        <div class="glass-panel rounded-2xl max-w-md w-full p-6 border border-teal-500/30 shadow-2xl relative space-y-4">
+            <button onclick="closeFirebaseModal()" class="absolute top-4 right-4 text-zinc-400 hover:text-white text-lg">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+
+            <div class="flex items-center gap-3 border-b border-zinc-800 pb-3">
+                <div class="w-10 h-10 rounded-xl bg-teal-500/20 text-teal-400 flex items-center justify-center text-lg">
+                    <i class="fa-solid fa-database"></i>
+                </div>
+                <div>
+                    <h3 class="text-base font-bold text-white">Cấu Hình Firebase Realtime DB</h3>
+                    <p class="text-xs text-zinc-400">Kết nối cơ sở dữ liệu để đồng bộ thời gian thực</p>
+                </div>
+            </div>
+
+            <div class="space-y-3 text-xs">
+                <div>
+                    <label class="block text-zinc-300 font-semibold mb-1">Database URL:</label>
+                    <input type="text" id="fb-url-input" placeholder="https://tram-giam-sat-ph-2356b-default-rtdb.asia-southeast1.firebasedatabase.app/" class="w-full bg-zinc-950 border border-zinc-700 text-teal-300 font-mono p-2.5 rounded-xl focus:outline-none focus:border-teal-400">
+                </div>
+
+                <div>
+                    <label class="block text-zinc-300 font-semibold mb-1">Chế độ kết nối:</label>
+                    <select id="conn-mode-select" class="w-full bg-zinc-950 border border-zinc-700 text-zinc-200 p-2.5 rounded-xl focus:outline-none focus:border-teal-400">
+                        <option value="sim">Giả Lập Trực Tiếp (Simulation Engine)</option>
+                        <option value="firebase">Kết Nối Firebase Trực Tiếp</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="pt-3 border-t border-zinc-800 flex justify-between gap-3">
+                <button onclick="closeFirebaseModal()" class="w-1/2 py-2.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-300 font-semibold text-xs transition">
+                    Hủy Bỏ
+                </button>
+                <button onclick="saveFirebaseConfig()" class="w-1/2 py-2.5 rounded-xl bg-teal-500 hover:bg-teal-400 text-zinc-950 font-bold text-xs transition">
+                    Lưu &amp; Kết Nối
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- TOAST NOTIFICATION CONTAINER -->
+    <div id="toast-container" class="fixed bottom-5 right-5 z-50 flex flex-col gap-2"></div>
+
+    <!-- APP CONTROLLER SCRIPT -->
+    <script>
+        const state = {
+            ph: 7.16,
+            voltage: 1.203,
+            adcRaw: 1500,
+            driftMv: 0.1,
+            isStable: true,
+            pumpStatus: 'ON',
+            pumpMode: 'AUTO',
+            pumpRuntimeSeconds: 862,
+            phMin: 7.2,
+            phMax: 7.6,
+            calUnlocked: false,
+            calPoints: {
+                p4: { volt: 0.985, done: true },
+                p7: { volt: 1.203, done: true },
+                p10: { volt: 1.421, done: true }
+            },
+            simulating: true,
+            firebaseConnected: true
+        };
+
+        let chart = null;
+        let dataInterval = null;
+
+        const historyData = {
+            labels: [],
+            phValues: [],
+            voltages: []
+        };
+
+        const now = new Date();
+        for (let i = 19; i >= 0; i--) {
+            const timeStr = new Date(now.getTime() - i * 3000).toLocaleTimeString();
+            historyData.labels.push(timeStr);
+            const variation = (Math.random() - 0.5) * 0.04;
+            historyData.phValues.push(Number((7.16 + variation).toFixed(2)));
+            historyData.voltages.push(Number((1.203 + variation * 0.07).toFixed(3)));
+        }
+
+        function initChart() {
+            const ctx = document.getElementById('telemetryChart').getContext('2d');
+            
+            const tealGradient = ctx.createLinearGradient(0, 0, 0, 300);
+            tealGradient.addColorStop(0, 'rgba(45, 212, 191, 0.35)');
+            tealGradient.addColorStop(1, 'rgba(45, 212, 191, 0.0)');
+
+            chart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: historyData.labels,
+                    datasets: [
+                        {
+                            label: 'Độ pH Hồ Bơi',
+                            data: historyData.phValues,
+                            borderColor: '#2dd4bf',
+                            borderWidth: 2.5,
+                            backgroundColor: tealGradient,
+                            fill: true,
+                            tension: 0.35,
+                            pointRadius: 2,
+                            pointHoverRadius: 6,
+                            pointBackgroundColor: '#2dd4bf',
+                            pointBorderColor: '#052019',
+                            pointBorderWidth: 2
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    animation: { duration: 400 },
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            backgroundColor: 'rgba(6, 36, 29, 0.9)',
+                            titleColor: '#f8fafc',
+                            bodyColor: '#2dd4bf',
+                            borderColor: 'rgba(45, 212, 191, 0.3)',
+                            borderWidth: 1,
+                            padding: 10,
+                            displayColors: false,
+                            callbacks: {
+                                label: function(context) {
+                                    return ` Giá trị pH: ${context.parsed.y} pH`;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            grid: { color: 'rgba(255, 255, 255, 0.05)' },
+                            ticks: { color: '#64748b', font: { family: 'JetBrains Mono', size: 10 } }
+                        },
+                        y: {
+                            min: 6.5,
+                            max: 8.5,
+                            grid: { color: 'rgba(255, 255, 255, 0.05)' },
+                            ticks: { color: '#64748b', font: { family: 'JetBrains Mono', size: 10 } }
+                        }
+                    }
+                }
+            });
+        }
+
+        function updateUI() {
+            const kpiPhVal = document.getElementById('kpi-ph-value');
+            const phProgressBar = document.getElementById('ph-progress-bar');
+            const phStatusBadge = document.getElementById('ph-status-badge');
+
+            kpiPhVal.innerText = state.ph.toFixed(2);
+            const progressPercent = Math.min(Math.max((state.ph / 14) * 100, 0), 100);
+            phProgressBar.style.width = `${progressPercent}%`;
+
+            if (state.ph >= state.phMin && state.ph <= state.phMax) {
+                kpiPhVal.className = "text-5xl font-black font-mono tracking-tight text-emerald-400";
+                phStatusBadge.className = "px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30";
+                phStatusBadge.innerText = "TỐI ƯU (CHUẨN HỒ BƠI)";
+            } else if (state.ph < state.phMin) {
+                kpiPhVal.className = "text-5xl font-black font-mono tracking-tight text-orange-400";
+                phStatusBadge.className = "px-2.5 py-1 rounded-full text-xs font-bold bg-orange-500/20 text-orange-400 border border-orange-500/30";
+                phStatusBadge.innerText = "THẤP (CẦN TĂNG pH)";
+            } else {
+                kpiPhVal.className = "text-5xl font-black font-mono tracking-tight text-rose-400";
+                phStatusBadge.className = "px-2.5 py-1 rounded-full text-xs font-bold bg-rose-500/20 text-rose-400 border border-rose-500/30";
+                phStatusBadge.innerText = "CAO (CẦN GIẢM pH)";
+            }
+
+            document.getElementById('kpi-drift-text').innerText = `~${state.driftMv.toFixed(1)} mV / 60s`;
+
+            document.getElementById('kpi-voltage').innerText = state.voltage.toFixed(3);
+            document.getElementById('kpi-adc-raw').innerText = `${state.adcRaw} / 4095`;
+
+            const pumpText = document.getElementById('pump-status-text');
+            const pumpIcon = document.getElementById('pump-status-icon');
+            const pumpModeBadge = document.getElementById('pump-mode-badge');
+            const pumpRuntime = document.getElementById('pump-runtime');
+
+            if (state.pumpStatus === 'ON') {
+                pumpText.innerText = "ĐANG BẬT";
+                pumpText.className = "text-2xl font-black text-emerald-400 tracking-wide uppercase";
+                pumpIcon.className = "w-12 h-12 rounded-xl bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 flex items-center justify-center text-2xl animate-pulse-slow glow-emerald";
+            } else {
+                pumpText.innerText = "ĐÃ TẮT";
+                pumpText.className = "text-2xl font-black text-zinc-500 tracking-wide uppercase";
+                pumpIcon.className = "w-12 h-12 rounded-xl bg-zinc-800 text-zinc-500 border border-zinc-700 flex items-center justify-center text-2xl";
+            }
+
+            pumpModeBadge.innerText = state.pumpMode;
+            
+            const mins = Math.floor(state.pumpRuntimeSeconds / 60);
+            const secs = state.pumpRuntimeSeconds % 60;
+            pumpRuntime.innerText = `${mins} phút ${secs < 10 ? '0' : ''}${secs} giây`;
+
+            const btn4 = document.getElementById('btn-cal-4');
+            const btn7 = document.getElementById('btn-cal-7');
+            const btn10 = document.getElementById('btn-cal-10');
+            const lockIcon = document.getElementById('lock-icon');
+
+            if (state.calUnlocked) {
+                lockIcon.className = "fa-solid fa-lock-open text-purple-400 text-sm";
+                [btn4, btn7, btn10].forEach(btn => {
+                    btn.disabled = false;
+                    btn.classList.remove('opacity-50', 'cursor-not-allowed');
+                    btn.classList.add('hover:border-purple-500/50', 'cursor-pointer');
+                });
+            } else {
+                lockIcon.className = "fa-solid fa-lock text-purple-400 text-sm";
+                [btn4, btn7, btn10].forEach(btn => {
+                    btn.disabled = true;
+                    btn.classList.add('opacity-50', 'cursor-not-allowed');
+                    btn.classList.remove('hover:border-purple-500/50', 'cursor-pointer');
+                });
+            }
+        }
+
+        function startDataEngine() {
+            if (dataInterval) clearInterval(dataInterval);
+
+            dataInterval = setInterval(() => {
+                if (!state.simulating || state.online) return;
+
+                const noise = (Math.random() - 0.5) * 0.02;
+                state.ph = Number(Math.max(0, Math.min(14, state.ph + noise)).toFixed(2));
+                state.voltage = Number((1.203 + (state.ph - 7.16) * 0.059 + noise * 0.01).toFixed(3));
+                state.adcRaw = Math.round((state.voltage / 3.3) * 4095);
+
+                if (state.pumpMode === 'AUTO') {
+                    if (state.ph < state.phMin && state.pumpStatus === 'OFF') {
+                        state.pumpStatus = 'ON';
+                        showToast("Tự động bật bơm định lượng do pH < " + state.phMin, "info");
+                    } else if (state.ph > state.phMax && state.pumpStatus === 'ON') {
+                        state.pumpStatus = 'OFF';
+                        showToast("Tự động tắt bơm định lượng do pH > " + state.phMax, "success");
+                    }
+                }
+
+                if (state.pumpStatus === 'ON') {
+                    state.pumpRuntimeSeconds += 1;
+                }
+
+                const nowStr = new Date().toLocaleTimeString();
+                chart.data.labels.push(nowStr);
+                chart.data.datasets[0].data.push(state.ph);
+
+                if (chart.data.labels.length > 25) {
+                    chart.data.labels.shift();
+                    chart.data.datasets[0].data.shift();
+                }
+
+                chart.update('none');
+                updateUI();
+            }, 1000);
+        }
+
+        function simulatePH(val) {
+            state.ph = val;
+            state.voltage = Number((1.203 + (val - 7.16) * 0.059).toFixed(3));
+            state.adcRaw = Math.round((state.voltage / 3.3) * 4095);
+            showToast(`Đã nạp giá trị pH thử nghiệm: ${val}`, "success");
+            updateUI();
+        }
+
+        function toggleDataStream() {
+            state.simulating = !state.simulating;
+            const btn = document.getElementById('stream-toggle-btn');
+            if (state.simulating) {
+                btn.innerHTML = `<i class="fa-solid fa-pause"></i> Tạm Dừng Sim`;
+                showToast("Đã tiếp tục luồng dữ liệu giả lập", "info");
+            } else {
+                btn.innerHTML = `<i class="fa-solid fa-play"></i> Tiếp Tục Sim`;
+                showToast("Đã tạm dừng luồng dữ liệu", "warning");
+            }
+        }
+
+        function togglePumpManual() {
+            state.pumpStatus = state.pumpStatus === 'ON' ? 'OFF' : 'ON';
+            if (state.pumpStatus === 'OFF') {
+                state.pumpRuntimeSeconds = 0;
+            }
+            showToast(`Đã chuyển bơm sang trạng thái: ${state.pumpStatus}`, "info");
+            updateUI();
+        }
+
+        function togglePumpMode() {
+            state.pumpMode = state.pumpMode === 'AUTO' ? 'MANUAL' : 'AUTO';
+            showToast(`Đã đổi chế độ bơm sang: ${state.pumpMode}`, "info");
+            updateUI();
+        }
+
+        function forcePumpToggle() {
+            state.pumpMode = 'MANUAL';
+            state.pumpStatus = state.pumpStatus === 'ON' ? 'OFF' : 'ON';
+            showToast(`FORCE PUMP: Đã ép bơm sang ${state.pumpStatus}`, "warning");
+            updateUI();
+        }
+
+        function saveThresholdSettings() {
+            const minVal = parseFloat(document.getElementById('input-ph-min').value);
+            const maxVal = parseFloat(document.getElementById('input-ph-max').value);
+
+            if (isNaN(minVal) || isNaN(maxVal) || minVal >= maxVal) {
+                showToast("Lỗi: Ngưỡng pH nhỏ nhất phải bé hơn ngưỡng lớn nhất!", "error");
+                return;
+            }
+
+            state.phMin = minVal;
+            state.phMax = maxVal;
+            showToast(`Đã lưu ngưỡng tự động: ${minVal} - ${maxVal} pH`, "success");
+            updateUI();
+        }
+
+        function toggleCalLock(checked) {
+            state.calUnlocked = checked;
+            showToast(checked ? "Đã MỞ KHÓA chế độ hiệu chuẩn" : "Đã KHÓA an toàn hiệu chuẩn", checked ? "warning" : "info");
+            updateUI();
+        }
+
+        function calibratePoint(point) {
+            if (!state.calUnlocked) return;
+
+            if (point === 4.01) {
+                state.calPoints.p4.volt = state.voltage;
+                document.getElementById('cal-v4-val').innerText = `(${state.voltage.toFixed(3)} V)`;
+            } else if (point === 6.86) {
+                state.calPoints.p7.volt = state.voltage;
+                document.getElementById('cal-v7-val').innerText = `(${state.voltage.toFixed(3)} V)`;
+            } else if (point === 9.18) {
+                state.calPoints.p10.volt = state.voltage;
+                document.getElementById('cal-v10-val').innerText = `(${state.voltage.toFixed(3)} V)`;
+            }
+
+            showToast(`Hiệu chuẩn thành công điểm pH ${point} tại ${state.voltage.toFixed(3)}V`, "success");
+        }
+
+        function setGraphFilter(mode) {
+            ['live', '1h', '24h'].forEach(m => {
+                const btn = document.getElementById(`btn-filter-${m}`);
+                if (m === mode) {
+                    btn.className = "px-3 py-1.5 rounded-lg bg-teal-500 text-zinc-950 font-bold transition";
+                } else {
+                    btn.className = "px-3 py-1.5 rounded-lg text-zinc-400 hover:text-white transition";
+                }
+            });
+            showToast(`Đã chuyển chế độ đồ thị: ${mode.toUpperCase()}`, "info");
+        }
+
+        function exportCSV() {
+            let csvContent = "data:text/csv;charset=utf-8,ThoiGian,GiaTri_pH,DienAp_Volt\n";
+            chart.data.labels.forEach((label, idx) => {
+                const phVal = chart.data.datasets[0].data[idx];
+                const voltVal = (1.203 + (phVal - 7.16) * 0.059).toFixed(3);
+                csvContent += `${label},${phVal},${voltVal}\n`;
+            });
+
+            const encodedUri = encodeURI(csvContent);
+            const link = document.createElement("a");
+            link.setAttribute("href", encodedUri);
+            link.setAttribute("download", `Telemetry_pH_Pool_${new Date().toISOString().slice(0,10)}.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            showToast("Đã xuất file CSV thành công!", "success");
+        }
+
+        function openFirebaseModal() {
+            document.getElementById('firebase-modal').classList.remove('hidden');
+        }
+
+        function closeFirebaseModal() {
+            document.getElementById('firebase-modal').classList.add('hidden');
+        }
+
+        function saveFirebaseConfig() {
+            const url = document.getElementById('fb-url-input').value.trim();
+            const mode = document.getElementById('conn-mode-select').value;
+
+            if (mode === 'firebase' && !url) {
+                showToast("Vui lòng nhập URL Firebase Database!", "error");
+                return;
+            }
+
+            closeFirebaseModal();
+            if (mode === 'firebase') {
+                try { localStorage.setItem('fburl', url); } catch (e) {}
+                connectFirebase(url, 'pool');
+            } else {
+                if (fbRef) fbRef.child('live').off();
+                fbRef = null; state.online = false; setConn(false);
+            }
+            showToast("Đã lưu thiết lập kết nối thành công!", "success");
+        }
+
+        function showToast(msg, type = "info") {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+
+            let borderClass = "border-teal-500/40 text-teal-300";
+            let icon = "fa-circle-info text-teal-400";
+
+            if (type === "success") {
+                borderClass = "border-emerald-500/40 text-emerald-300";
+                icon = "fa-circle-check text-emerald-400";
+            } else if (type === "warning") {
+                borderClass = "border-orange-500/40 text-orange-300";
+                icon = "fa-triangle-exclamation text-orange-400";
+            } else if (type === "error") {
+                borderClass = "border-rose-500/40 text-rose-300";
+                icon = "fa-circle-xmark text-rose-400";
+            }
+
+            toast.className = `glass-panel px-4 py-3 rounded-xl border ${borderClass} text-xs font-semibold flex items-center gap-2.5 shadow-xl transition-all duration-300 transform tranzinc-y-2 opacity-0`;
+            toast.innerHTML = `<i class="fa-solid ${icon} text-sm"></i> <span>${msg}</span>`;
+
+            container.appendChild(toast);
+
+            setTimeout(() => {
+                toast.classList.remove('tranzinc-y-2', 'opacity-0');
+            }, 10);
+
+            setTimeout(() => {
+                toast.classList.add('opacity-0', 'tranzinc-y-2');
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+
+
+        // ---- Firebase thật: mạch ghi vào pool/live, web gửi lệnh vào pool/cmd ----
+        let fbRef = null;
+        state.online = false;
+
+        function setConn(on) {
+            document.getElementById('firebase-status-text').innerText = on ? 'Đang nhận dữ liệu từ mạch' : 'Đang chạy giả lập';
+        }
+
+        function connectFirebase(url, path) {
+            try {
+                if (!firebase.apps.length) firebase.initializeApp({ databaseURL: url });
+                fbRef = firebase.database().ref(path);
+                fbRef.child('live').on('value', snap => {
+                    const d = snap.val();
+                    if (!d) return;
+                    state.online = true; setConn(true);
+                    if (d.ph != null) state.ph = Number(Number(d.ph).toFixed(2));
+                    if (d.voltage != null) state.voltage = Number(d.voltage);
+                    if (d.adc != null) state.adcRaw = d.adc;
+                    if (d.drift != null) state.driftMv = Number(d.drift);
+                    if (d.pump != null) state.pumpStatus = d.pump ? 'ON' : 'OFF';
+                    if (d.mode) state.pumpMode = d.mode;
+                    chart.data.labels.push(new Date().toLocaleTimeString());
+                    chart.data.datasets[0].data.push(state.ph);
+                    if (chart.data.labels.length > 25) { chart.data.labels.shift(); chart.data.datasets[0].data.shift(); }
+                    chart.update('none');
+                    updateUI();
+                }, e => showToast("Không đọc được dữ liệu: " + e.message, "error"));
+                showToast("Đang chờ dữ liệu từ mạch...", "info");
+            } catch (e) { showToast("Lỗi kết nối: " + e.message, "error"); }
+        }
+
+        ['saveThresholdSettings', 'togglePumpMode', 'forcePumpToggle', 'togglePumpManual'].forEach(n => {
+            const f = window[n];
+            window[n] = function () {
+                f();
+                if (fbRef) fbRef.child('cmd').update({ phMin: state.phMin, phMax: state.phMax, mode: state.pumpMode, pump: state.pumpStatus === 'ON' });
+            };
+        });
+
+        window.addEventListener('load', () => {
+            let u = null; try { u = localStorage.getItem('fburl'); } catch (e) {}
+            if (u) { document.getElementById('fb-url-input').value = u; document.getElementById('conn-mode-select').value = 'firebase'; connectFirebase(u, 'pool'); }
+        });
+
+        window.addEventListener('load', () => {
+            initChart();
+            updateUI();
+            startDataEngine();
+        });
+    </script>
+</body>
+</html>
